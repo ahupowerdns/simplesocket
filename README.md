@@ -1,5 +1,5 @@
 # simplesocket
-simple socket helpers for C++ 2014
+simple socket helpers for C++ 2011 (or perhaps C++ 2014).
 
 From C++ the full POSIX and OS socket functions are available.  These are
 very powerful, offer well known semantics, but are somewhat of a pain to
@@ -28,3 +28,32 @@ and has since become a part of PowerDNS.
 The simple wrappers have also long been used in various projects. The
 top-most classes are new.
 
+## Mission statements
+### ComboAddress
+ComboAddress is and will remain a minimal wrapper around the IPv4 and IPv6
+sockaddrs. It will not address other address families.
+
+ComboAddress will contain a few hashing primitives that facilitate storing
+in hashed data structures. 
+
+### Simple wrappers
+These use the file descriptor of the socket as an object. In other words,
+there is absolutely no state in our code, everything lives in the kernel.
+The wrappers do not change semantics but only provide efficient variants
+that can talk to C++ objects like ComboAddress, std::string (-wrappers).
+
+### Simple classes
+Operate on bare sockets. Do provide a minimal set of non-POSIX semantics,
+like 'getline' on a TCP/IP socket, or 'writen' which deals with partial
+writes.
+
+Optionally knows about timeouts. If a class has state, this is noted very
+clearly. This is done to make sure that sockets passed to instances can
+continue to interoperate with all other socket calls.
+
+## Status
+Very early. API is likely to evolve. It is also not sure if this code will
+depend on Boost and/or C++ 2014. C++ 2011 is a given.
+
+How to report errors is also still an open question. This will likely end up
+as a safe default which can globally be overwritten. 
