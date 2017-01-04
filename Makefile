@@ -8,6 +8,6 @@ clean:
 
 -include *.d
 
-test: test.o comboaddress.o swrappers.o
+test: test.o comboaddress.o swrappers.o sclasses.o
 	g++ -std=gnu++14 $^ -o $@
 

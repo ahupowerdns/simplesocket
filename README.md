@@ -20,6 +20,29 @@ This small set of files attempts to offer:
 Each of these layers builds on the previous ones. If you want, you can only
 use only ComboAddress, or only ComboAddress and the wrappers.
 
+Some sample code:
+```
+  auto addresses=resolveName("ds9a.nl"); // this retrieves IPv4 and IPv6
+
+  for(auto& a : addresses) {
+    a.setPort(80);
+    cout<<"Connecting to: " << a.toStringWithPort() << endl;
+    
+    int s = SSocket(a.sin.sin_family, SOCK_STREAM, 0);
+    SConnect(s, a);
+    SetNonBlocking(s);
+    SocketCommunicator sc(s);
+    
+    sc.writen("GET / HTTP/1.1\r\nHost: ds9a.nl\r\nConnection: Close\r\n\r\n");
+
+    std::string line;
+    while(sc.getLine(line)) {
+      cout<<"Got: "<<line;
+    }
+    close(s);
+  }
+```
+
 ## History
 ComboAddress was first described in a 2006
 [blogpost](https://blog.netherlabs.nl/articles/2006/10/12/the-joys-of-mixing-c-and-c)
@@ -29,6 +52,17 @@ The simple wrappers have also long been used in various projects. The
 top-most classes are new.
 
 ## Mission statements
+To repeat, the goal of this library is in no way to sugarcoat the BSD socket
+API. The underlying semantics are exposed to you 100%, including the
+'tristate' return codes for operations. A 0 means EOF, a negative value is
+an error. A positive value continues to mean what it meant.
+
+We do translate the error conditions to exceptions. But an EOF is not an
+error.
+
+The underlying socket API is not straightforward, but it is well documented.
+In this library, it is exactly what you get. Except with less typing.
+
 ### ComboAddress
 ComboAddress is and will remain a minimal wrapper around the IPv4 and IPv6
 sockaddrs. It will not address other address families.

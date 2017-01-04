@@ -1,5 +1,7 @@
 #include "swrappers.hh"
 #include <boost/format.hpp>
+#include <unistd.h>
+#include <fcntl.h>
 
 /** these functions provide a very lightweight wrapper to the Berkeley sockets API. Errors -> exceptions! */
 
@@ -60,5 +62,54 @@ int SSetsockopt(int sockfd, int level, int opname, int value)
   int ret = setsockopt(sockfd, level, opname, &value, sizeof(value));
   if(ret < 0)
     RuntimeError(boost::format("setsockopt for level %d and opname %d to %d failed: %s") % level % opname % value % strerror(errno));
+  return ret;
+}
+
+void SetNonBlocking(int sock, bool to)
+{
+  int flags=fcntl(sock,F_GETFL,0);
+  if(flags<0)
+    RuntimeError(boost::format("Retrieving socket flags: %s") % strerror(errno));
+
+  // so we could optimize to not do it if nonblocking already set, but that would be.. semantics
+  if(to) {
+    flags |= O_NONBLOCK;
+  }
+  else 
+    flags &= (~O_NONBLOCK);
+      
+  if(fcntl(sock, F_SETFL, flags) < 0)
+    RuntimeError(boost::format("Setting socket flags: %s") % strerror(errno));
+}
+
+std::vector<ComboAddress> resolveName(boost::string_ref name, bool ipv4, bool ipv6)
+{
+  std::vector<ComboAddress> ret;
+
+  for(int n = 0; n < 2; ++n) {
+    struct addrinfo* res;
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_family = n ? AF_INET : AF_INET6;
+    if(hints.ai_family == AF_INET && !ipv4)
+      continue;
+    if(hints.ai_family == AF_INET6 && !ipv6)
+      continue;
+    
+    ComboAddress remote;
+    remote.sin4.sin_family = AF_INET6;
+    if(!getaddrinfo(&name[0], 0, &hints, &res)) { // this is how the getaddrinfo return code works
+      struct addrinfo* address = res;
+      do {
+        if (address->ai_addrlen <= sizeof(remote)) {
+          memcpy(&remote, address->ai_addr, address->ai_addrlen);
+          remote.sin4.sin_port=0;
+          ret.push_back(remote);
+        }
+      } while((address = address->ai_next));
+      freeaddrinfo(res);
+    }
+  }
   return ret;
 }

@@ -64,6 +64,7 @@ constexpr struct sockaddr_in operator "" _ipv4(const char* p, size_t l)
 
 
 union ComboAddress {
+  struct sockaddr_in sin;
   struct sockaddr_in sin4;
   struct sockaddr_in6 sin6;
 
@@ -201,7 +202,10 @@ union ComboAddress {
     if(!sin4.sin_port) // 'str' overrides port!
       sin4.sin_port=htons(port);
   }
-
+  void setPort(uint16_t port)
+  {
+    sin4.sin_port = htons(port);
+  }
   bool isIPv6() const
   {
     return sin4.sin_family == AF_INET6;
