@@ -70,8 +70,13 @@ void SocketCommunicator::writen(boost::string_ref content)
   int res;
   while(pos < content.size()) {
     res=write(d_fd, &content[pos], content.size()-pos);
-    if(res < 0)
+    if(res < 0) {
+      if(errno == EAGAIN) {
+        waitForRWData(d_fd, false);
+        continue;
+      }
       throw std::runtime_error("Writing to socket: "+std::string(strerror(errno)));
+    }
     if(res==0)
       throw std::runtime_error("EOF on write");
     pos += res;
