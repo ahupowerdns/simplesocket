@@ -20,28 +20,37 @@ This small set of files attempts to offer:
 Each of these layers builds on the previous ones. If you want, you can only
 use only ComboAddress, or only ComboAddress and the wrappers.
 
-Some sample code:
+Some sample code using all three elements:
 ```
   auto addresses=resolveName("ds9a.nl"); // this retrieves IPv4 and IPv6
 
   for(auto& a : addresses) {
     a.setPort(80);
-    cout<<"Connecting to: " << a.toStringWithPort() << endl;
+    cout << "Connecting to: " << a.toStringWithPort() << endl;
     
-    int s = SSocket(a.sin.sin_family, SOCK_STREAM, 0);
-    SConnect(s, a);
-    SetNonBlocking(s);
-    SocketCommunicator sc(s);
-    
+    RAIISocket rs(a.sin.sin_family, SOCK_STREAM);
+    SocketCommunicator sc(rs);
+    sc.connect(a);
     sc.writen("GET / HTTP/1.1\r\nHost: ds9a.nl\r\nConnection: Close\r\n\r\n");
 
     std::string line;
     while(sc.getLine(line)) {
       cout<<"Got: "<<line;
     }
-    close(s);
   }
 ```
+This shows the use of `resolveName()` which when called like this retrieves
+IPv4 and IPv6 addresses. 
+
+In the for loop, we set the destination port to 80.  The `RAIISocket` class
+creates a socket that is closed when `rs` goes out of scope. `RAIISocket`
+has no state, it is an int.
+
+The `SocketCommunicator` class provides an interface that provides for
+sending of whole messages (even in the face of partial writes) and
+retrieving whole lines (even if they appear in multiple reads).
+`SocketCommunicator` als supports timeouts.
+
 
 ## History
 ComboAddress was first described in a 2006
