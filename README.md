@@ -20,6 +20,7 @@ This small set of files attempts to offer:
 Each of these layers builds on the previous ones. If you want, you can only
 use only ComboAddress, or only ComboAddress and the wrappers.
 
+## Sample code
 Some sample code using all three elements:
 ```
   auto addresses=resolveName("ds9a.nl"); // this retrieves IPv4 and IPv6
