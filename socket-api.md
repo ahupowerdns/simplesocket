@@ -21,8 +21,10 @@ With one notable exception (`getaddrinfo()`), all socket relevant system calls a
 
 There is not a single socket call where you don't need to check the return code. All of them, including `close()` frequently return errors you need to know about.
 
-## Making a socket
+## Making a socket & disposing of it
 You make a socket with the `socket(family, type, options)` call. Family can be AF_INET for IPv4, AF_INET6 for IPv6. Type is SOCK_DGRAM for UDP and SOCK_STREAM for TCP. Ignore the options for now. 
+
+Once done with a socket, you can call `close()` on it. There is usually no need to call `shutdown()` on a socket, nor might this do anything useful.
 
 ## Addresses
 Network addresses, including port number & other parameters (for IPv6) live in `struct sockaddr_in` and `struct sockaddr_in6`. Since C does not do inheritance or polymorphism, this is emulated. Both structs start the same, and all calls accept a pointer to a `struct sockaddr` and a length field.  From this, the operating system learns if it is looking at an IPv4 or an IPv6 (or another) address. 
@@ -30,7 +32,7 @@ Network addresses, including port number & other parameters (for IPv6) live in `
 Filling out these sockaddr structs is far more complicated than you'd expect, but we'll get to that. 
 
 ## Anchoring a socket
-Once you have a socket, it can be anchored at both ends: you can bind it to a local address, and connect it to a remote one. Both operations are sometimes optional (UDP) and sometimes mandatory (TCP).
+Once you have a socket, it can be anchored at both ends: you can bind it to a local address, and connect it to a remote one. Anchoring is sometimes optional (UDP) and sometimes mandatory (TCP).
 
 ### UDP
 A UDP socket is ready for use once created with `socket()`. With `sendto(sock, content, contentlen, flags, sockaddr*, sockaddrlength)` you can start lobbing datagrams (which can end up as multiple packets). A packet gets sent or it doesn't. `sendto()` will let you know if it is sure it failed by returning negative. If it returns positive, well, it tried to send your packet is the best you know.
@@ -101,6 +103,28 @@ It is important to note that POSIX takes a broad view of what denotes 'readble' 
 
 In addition, like many other functions, `poll()` frequently changes its mind. If it says a socket is readable or writable, this may no longer be the case by the time you try. For this reason, do not EVER use `poll()` on a blocking socket. You might block.
 
+## Filling out struct sockaddr_in and struct sockaddr_in6
+To actually connect or send something, we'll need to fill out these sockaddr structs. This is surprisingly tricky.
+First, you must make sure the IPv6 struct is zeroed out as it is full of fields that need to be set to safe defaults.
+
+Secondly, the function recommended to fill out these structs (`getaddrinfo()`) has suffered from mission creep. It is safer to use the older functions inet_pton and inet_aton if you can get away with them. Sample code:
+
+```
+struct sockaddr_in ret;
+inet_aton("127.0.0.1", &ret.sin_addr); // DO CHECK FOR ERRORS
+ret.sin.sin_port = htons(80);          // htons has historical reasons
+```
+
+And for IPv6:
+```
+struct sockaddr_in6 ret;
+memset(&ret, 0, sizeof(ret));
+inet_pton(AF_INET6, "::1", (void*)&ret.sin6_addr);
+ret.sin6.sin6_port = htons(80);
+```
+
+`inet_pton` however does not deal with scoped IPv6 addresses. The full horror of this is explained [here](https://blog.powerdns.com/2014/05/21/a-surprising-discovery-on-converting-ipv6-addresses-we-no-longer-prefer-getaddrinfo/)
+
 ## A note on reliability and "flushing" or "syncing" data
 No matter how you do it, the socket API will never guarantee you that your data arrived. In fact it will not even guarantee you that it got _sent_. There are various system calls that make it *more likely* that your data hit the wire. But no promises. If you ever want to be sure your data made it to the other end, the only way to find that out is if the other end actually confirms this to you.
 
@@ -116,5 +140,14 @@ Otherwise your code will silently die occasionally for reasons that arre hard to
 
 Additionally, for any TCP socket you call `listen()` on, you must first set the socket option SO_REUSEADDR to 1. This too has valid historical reasons which are hard to explain, but just do it. 
 
+```
+int one=1;
+setsockopt(sock, SOL_SOCKET, SO_REUSEADDR,(char*)&one,sizeof one);
+```
+
 ## If you want to know more
+This page, by design, only gives an introduction to the basics. Thousand page books have been written about networking, however.
+
+[Beej](http://beej.us/guide/bgnet/) goes into intermediate depth. The glorious books by [Stevens](https://www.amazon.com/W.-Richard-Stevens/e/B000AP9GV4) are fantastic. The Open Group manpages for the various calls are exhaustive, as is [The Linux Programming Interface](http://man7.org/tlpi/).
+
 
