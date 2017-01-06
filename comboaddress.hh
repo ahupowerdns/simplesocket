@@ -61,13 +61,26 @@ constexpr struct sockaddr_in operator "" _ipv4(const char* p, size_t l)
 
 }
 
+/** The ComboAddress holds an IPv4 or an IPv6 endpoint, including a source port.
+    It is ABI-compatible with struct sockaddr, sockaddr_in and sockaddr_in6. 
+    This means it can be passed to the kernel via a pointer directly. 
 
+    When doing so, it is imperative to pass the right length parameter, because some 
+    operating systems get confused if they see length longer than necessary.
+
+    Canonical use is: connect(sock, (struct sockaddr*)&combo, combo.getSocklen())
+
+    The union has methods for parsing string ('human') IP address representations, and
+    these support all kinds of addresses, including scoped IPv6 and port numbers 
+    (1.2.3.4:80 and [::1]:80 or even [fe80::1%eth0]:80).
+*/
 
 union ComboAddress {
   struct sockaddr_in sin;
   struct sockaddr_in sin4;
   struct sockaddr_in6 sin6;
 
+  //! Tests for equality, including port number. IPv4 and IPv6 are never equal.
   bool operator==(const ComboAddress& rhs) const
   {
     if(std::tie(sin4.sin_family, sin4.sin_port) != std::tie(rhs.sin4.sin_family, rhs.sin4.sin_port))
@@ -78,11 +91,13 @@ union ComboAddress {
       return memcmp(&sin6.sin6_addr.s6_addr, &rhs.sin6.sin6_addr.s6_addr, sizeof(sin6.sin6_addr.s6_addr))==0;
   }
 
+  //! Inequality
   bool operator!=(const ComboAddress& rhs) const
   {
     return(!operator==(rhs));
   }
 
+  //! This ordering is intended to be fast and strict, but not necessarily human friendly.
   bool operator<(const ComboAddress& rhs) const
   {
     if(sin4.sin_family == 0) {
@@ -122,7 +137,8 @@ union ComboAddress {
     }
   };
   */
-  
+
+  //! Convenience comparator that compares regardless of port. 
   struct addressOnlyLessThan: public std::binary_function<ComboAddress, ComboAddress, bool>
   {
     bool operator()(const ComboAddress& a, const ComboAddress& b) const
@@ -137,7 +153,7 @@ union ComboAddress {
         return memcmp(&a.sin6.sin6_addr.s6_addr, &b.sin6.sin6_addr.s6_addr, sizeof(a.sin6.sin6_addr.s6_addr)) < 0;
     }
   };
-
+  //! Convenience comparator that compares regardless of port. 
   struct addressOnlyEqual: public std::binary_function<ComboAddress, ComboAddress, bool>
   {
     bool operator()(const ComboAddress& a, const ComboAddress& b) const
@@ -151,7 +167,7 @@ union ComboAddress {
     }
   };
 
-
+  //! it is vital to pass the correct socklen to the kernel
   socklen_t getSocklen() const
   {
     if(sin4.sin_family == AF_INET)
@@ -159,7 +175,8 @@ union ComboAddress {
     else
       return sizeof(sin6);
   }
-  
+
+  //! Initializes an 'empty', impossible, ComboAddress
   ComboAddress() 
   {
     sin4.sin_family=AF_INET;
@@ -167,27 +184,41 @@ union ComboAddress {
     sin4.sin_port=0;
   }
 
+  //! Make a ComboAddress from a traditional sockaddr
   ComboAddress(const struct sockaddr *sa, socklen_t salen) {
     setSockaddr(sa, salen);
-  };
+  }
 
+  //! Make a ComboAddress from a traditional sockaddr_in6
   ComboAddress(const struct sockaddr_in6 *sa) {
     setSockaddr((const struct sockaddr*)sa, sizeof(struct sockaddr_in6));
-  };
+  }
 
+  //! Make a ComboAddress from a traditional sockaddr_in
   ComboAddress(const struct sockaddr_in *sa) {
     setSockaddr((const struct sockaddr*)sa, sizeof(struct sockaddr_in));
-  };
+  }
+  //! Make a ComboAddress from a traditional sockaddr
   ComboAddress(const struct sockaddr_in& sa) {
     setSockaddr((const struct sockaddr*)&sa, sizeof(struct sockaddr_in));
-  };
+  }
 
   void setSockaddr(const struct sockaddr *sa, socklen_t salen) {
     if (salen > sizeof(struct sockaddr_in6)) throw std::runtime_error("ComboAddress can't handle other than sockaddr_in or sockaddr_in6");
     memcpy(this, sa, salen);
   }
 
-  // 'port' sets a default value in case 'str' does not set a port
+  /** "Human" representation constructor. 
+      The following are all identical: 
+      ComboAddress("1.2.3.4:80");
+      ComboAddress("1.2.3.4", 80);
+      ComboAddress("1.2.3.4:80", 1234)
+
+      As are:
+      ComboAddress("fe80::1%eth0", 80);
+      ComboAddress("[fe80::1%eth0]:80");
+      ComboAddress("[fe::1%eth0]:80", 1234);
+  */
   explicit ComboAddress(const std::string& str, uint16_t port=0)
   {
     memset(&sin6, 0, sizeof(sin6));
@@ -202,19 +233,24 @@ union ComboAddress {
     if(!sin4.sin_port) // 'str' overrides port!
       sin4.sin_port=htons(port);
   }
+  //! Sets port, deals with htons for you
   void setPort(uint16_t port)
   {
     sin4.sin_port = htons(port);
   }
+  //! Is this an IPv6 address?
   bool isIPv6() const
   {
     return sin4.sin_family == AF_INET6;
   }
+
+  //! Is this an IPv4 address?
   bool isIPv4() const
   {
     return sin4.sin_family == AF_INET;
   }
 
+  //! Is this an ffff:: style IPv6 address?
   bool isMappedIPv4()  const
   {
     if(sin4.sin_family!=AF_INET6)
@@ -232,7 +268,8 @@ union ComboAddress {
     
     return true;
   }
-  
+
+  //! Extract the IPv4 address from a mapped IPv6 address
   ComboAddress mapToIPv4() const
   {
     if(!isMappedIPv4())
@@ -247,6 +284,7 @@ union ComboAddress {
     return ret;
   }
 
+  //! Returns a string (human) represntation of the address
   std::string toString() const
   {
     char host[1024];
@@ -256,6 +294,7 @@ union ComboAddress {
       return "invalid";
   }
 
+  //! Returns a string (human) represntation of the address, including port
   std::string toStringWithPort() const
   {
     if(sin4.sin_family==AF_INET)

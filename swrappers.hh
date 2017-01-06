@@ -2,7 +2,7 @@
 #include <boost/utility/string_ref.hpp>
 
 #include "comboaddress.hh"
-int SSocket(int family, int type, int flags);
+int SSocket(int family, int type, int flags=0);
 int SConnect(int sockfd, const ComboAddress& remote);
 int SBind(int sockfd, const ComboAddress& local);
 int SAccept(int sockfd, ComboAddress& remote);

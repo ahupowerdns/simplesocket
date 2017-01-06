@@ -79,11 +79,34 @@ sockaddrs. It will not address other address families.
 ComboAddress will contain a few hashing primitives that facilitate storing
 in hashed data structures. 
 
+Sample code, showing how to use ComboAddress with the native socket API:
+```
+ComboAddress aroot("198.41.0.4", 53);
+sendto(s, "hello", 5, 0, (struct sockaddr*)&aroot, aroot.getSocklen());
+...
+ComboAddress client("::");
+socklen_t slen = client.getSocklen();
+
+csock = accept(s, (struct sockaddr*)&client, &slen);
+```
+
+
 ### Simple wrappers
 These use the file descriptor of the socket as an object. In other words,
 there is absolutely no state in our code, everything lives in the kernel.
 The wrappers do not change semantics but only provide efficient variants
-that can talk to C++ objects like ComboAddress, std::string (-wrappers).
+that can talk to C++ objects like ComboAddress and std::string (-wrappers).
+
+Sample code:
+```
+s = SSocket(AF_INET, SOCK_DGRAM);
+ComboAddress aroot("198.41.0.4", 53);
+SConnect(s, aroot);
+SSend(s, "hello");
+```
+
+Regular return codes get returned, negative return codes get turned into
+exceptions. EOF is not an error.
 
 ### Simple classes
 Operate on bare sockets. Do provide a minimal set of non-POSIX semantics,
