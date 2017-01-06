@@ -1,11 +1,13 @@
 # The sockets API
 I trawled the web and asked twitter for a brief introduction on how network sockets actually work in POSIX. I know of very long and thorough explanations ([Stevens](https://www.amazon.com/W.-Richard-Stevens/e/B000AP9GV4)), medium length explanations ([Beej](http://beej.us/guide/bgnet/)), but no "tl;dr"-grade page. Here goes.
 
+The goal is to provide a quick intro to sufficient parts of the socket API that can write competent and robust TCP or UDP client or server programs in any language that offers access to this API.
+
 NOTE: This document is a companion to an [easy to use set of C++ helpers](https://github.com/ahupowerdns/simplesocket) that give you the exact socket API, but with less typing. 
 
 The following assumes you know what IP addresses & ports are, and roughly the difference between UDP and TCP. 
 
-However, even if you know the basics of the protocols, it turns out the API to the network is not obvious and full of traps. As an example, you can ask your operating system to transmit 1000KB of data over TCP/IP, and almost always, it will do that. However, a few percent of the time it only transmits 900KB. And if you did not check for that, your application is now subtly broken. Oh, and there is no flag that protects you against this.
+However, even if you know the basics of the protocols, it turns out the API to the network is not obvious and full of traps. As an example, you can ask your operating system to transmit 100KB of data over TCP/IP, and almost always, it will do that. However, a few percent of the time it only transmits 90KB. And if you did not check for that, your application is now subtly broken. 
 
 If this is the kind of thing you need to know about, read on.
 
@@ -17,7 +19,7 @@ Unlike files, sockets can be blocking or non-blocking. A non-blocking socket wil
 We'll only be discussing datagram (UDP) or stream (TCP) sockets here. You will have read that UDP is unreliable, but TCP is not reliable either. If you write something to a TCP socket, there is no guarantee at all that anything happened to it, except that the kernel will do its best to get the data across. For UDP you don't even get that promise. This is in marked contrast to files where a write() and a sync() give you actual guarantees (if these work depends on your hardware).
 
 ## Error codes
-With one notable exception (`getaddrinfo()`), all socket relevant system calls adhere to the C/POSIX/UNIX principle that a negative return code is an error. A 0 return code usually denotes EOF ('your connection is now gone'), a positive return tells you how much data got sent.
+With the exception of the address resolution functions, all socket relevant system calls adhere to the C/POSIX/UNIX principle that a negative return code is an error. A 0 return code usually denotes EOF ('your connection is now gone'), a positive return tells you how much data got sent.
 
 There is not a single socket call where you don't need to check the return code. All of them, including `close()` frequently return errors you need to know about.
 
@@ -47,7 +49,7 @@ TCP sockets need to be `connect()`-ed before you can send on them. In the words 
 ### TCP server (blocking)
 To receive incoming connections, a TCP socket must first be anchored locally with `bind(sock, sockaddr*, sockaddrlen)`. Then we must inform the kernel we want to `listen(s, amount)` to incoming connections. Finally, we can then call `accept(sock, sockaddr*, sockaddrlen*)` to get new sockets that represent incoming connections.
 
-NOTE: See the remark about SO_REUSEPORT below. 
+NOTE: See the remark about SO_REUSEADDR below. 
 
 NOTE: like `recvfrom()` and other socket calls, `accept()` will frequently surprise you with unexpected errors. This happens for example when a valid connection arrived, but it got disconnected before `accept()` returns. Typically, `accept()` is also the call that tells you you ran out of file descriptors, and there is no recovery from that. Naive code will retry `accept()` on EMFILE and thus make a bad situation worse. 
 
@@ -97,12 +99,13 @@ So, if you try to read a full line of text (as described above), you can now saf
 This works much like blocking UDP, alhough you might now also get EAGAIN when trying to receive data. At least there is no waiting
 
 ## Waiting
-So, if we got EGAIN, now what? Almost all sample code will tell you to use `select()` to wait on a socket, but no one should ever be using `select()` ever again, since this call breaks violently if you use more than x file descriptors. You'll find out x at 3AM one day. Use `poll()` instead, or one of the more modern variants. 
+So, if we got EAGAIN, now what? Almost all sample code will tell you to use `select()` to wait on a socket, but no one should ever be using `select()` ever again, since this call breaks violently if you use more than x file descriptors. You'll find out x at 3AM one day. Use `poll()` instead, or one of the more modern variants (epoll, kqueue).
 
 It is important to note that POSIX takes a broad view of what denotes 'readble' or 'writable' on a socket. For example, EOF is both. So `poll()` might return and tell you a socket is readable, but when you try, it gives you EOF. 
 
 In addition, like many other functions, `poll()` frequently changes its mind. If it says a socket is readable or writable, this may no longer be the case by the time you try. For this reason, do not EVER use `poll()` on a blocking socket. You might block.
 
+One can also do non-blocking `connect()` but the details are arcane. The error code of a failed connect needs to be retrieved with additional work. Sample code is in [SimpleSocket](https://github.com/ahupowerdns/simplesocket/blob/ed53be41f5bf5722cda428ae32205b4fe9576d4e/sclasses.cc#L44).
 ## Filling out struct sockaddr_in and struct sockaddr_in6
 To actually connect or send something, we'll need to fill out these sockaddr structs. This is surprisingly tricky.
 First, you must make sure the IPv6 struct is zeroed out as it is full of fields that need to be set to safe defaults.
@@ -120,16 +123,15 @@ And for IPv6:
 struct sockaddr_in6 ret;
 memset(&ret, 0, sizeof(ret));
 inet_pton(AF_INET6, "::1", (void*)&ret.sin6_addr);
-ret.sin6.sin6_port = htons(80);
+ret.sin6.sin6_port = htons(80);  
 ```
 
-`inet_pton` however does not deal with scoped IPv6 addresses. The full horror of this is explained [here](https://blog.powerdns.com/2014/05/21/a-surprising-discovery-on-converting-ipv6-addresses-we-no-longer-prefer-getaddrinfo/)
+`inet_pton` however does not deal with scoped IPv6 addresses. The full horror of converting IPv6 addresses is explained [here](https://blog.powerdns.com/2014/05/21/a-surprising-discovery-on-converting-ipv6-addresses-we-no-longer-prefer-getaddrinfo/)
 
 ## A note on reliability and "flushing" or "syncing" data
 No matter how you do it, the socket API will never guarantee you that your data arrived. In fact it will not even guarantee you that it got _sent_. There are various system calls that make it *more likely* that your data hit the wire. But no promises. If you ever want to be sure your data made it to the other end, the only way to find that out is if the other end actually confirms this to you.
 
 Some useful and simple tricks to make this happen can be found [here](https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable)
-
 
 ## Some vital historical code
 You will need to run the following in all network code:
