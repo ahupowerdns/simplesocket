@@ -1,9 +1,11 @@
 # The sockets API
 I trawled the web and asked twitter for a brief introduction on how network sockets actually work in POSIX. I know of very long and thorough explanations ([Stevens](https://www.amazon.com/W.-Richard-Stevens/e/B000AP9GV4)), medium length explanations ([Beej](http://beej.us/guide/bgnet/)), but no "tl;dr"-grade page. Here goes.
 
-The following assumes you know what IP addresses are and roughly the difference between UDP and TCP. 
+NOTE: This document is a companion to an [easy to use set of C++ helpers](https://github.com/ahupowerdns/simplesocket) that give you the exact socket API, but with less typing. 
 
-However, even if you know the basics of the protocols, it turns out the API to the network is not obvious and full of traps. As an example, you can ask your operating system to transmit 1000KB of data over TCP/IP, and almost always, it will do that. However, a few percent of the time only only transmits 900KB. And if you did not check for that, your application is now subtly broken. Oh, and there is no flag that protects you against this.
+The following assumes you know what IP addresses & ports are, and roughly the difference between UDP and TCP. 
+
+However, even if you know the basics of the protocols, it turns out the API to the network is not obvious and full of traps. As an example, you can ask your operating system to transmit 1000KB of data over TCP/IP, and almost always, it will do that. However, a few percent of the time it only transmits 900KB. And if you did not check for that, your application is now subtly broken. Oh, and there is no flag that protects you against this.
 
 If this is the kind of thing you need to know about, read on.
 
@@ -12,7 +14,7 @@ The socket is the core concept. It is a file descriptor, just like you'd get fro
 
 Unlike files, sockets can be blocking or non-blocking. A non-blocking socket will never make you wait, and might not do everything you asked of it. A blocking socket will make you wait but might STILL not do everything you asked of it. In this document we start with the default of blocking sockets.
 
-We'll only be discussing datagram (UDP) or stream (TCP) sockets. You will hear that UDP is unreliable, but TCP is not reliable either. If you write something to a TCP socket, there is no guarantee at all that anything happened to it, except that the kernel will do its best to get the data across. For UDP you don't even get that guarantee. This is in marked contrast to files where a write() and a sync() give you actual guarantees (if these work depends on your hardware).
+We'll only be discussing datagram (UDP) or stream (TCP) sockets here. You will have read that UDP is unreliable, but TCP is not reliable either. If you write something to a TCP socket, there is no guarantee at all that anything happened to it, except that the kernel will do its best to get the data across. For UDP you don't even get that promise. This is in marked contrast to files where a write() and a sync() give you actual guarantees (if these work depends on your hardware).
 
 ## Error codes
 With one notable exception (`getaddrinfo()`), all socket relevant system calls adhere to the C/POSIX/UNIX principle that a negative return code is an error. A 0 return code usually denotes EOF ('your connection is now gone'), a positive return tells you how much data got sent.
@@ -71,6 +73,40 @@ This is a ton of work to do reliably. If you do something like `read(s, buf, 102
 
 The only way to do this reliably on a blocking TCP socket is.. to read one character at a time, and stop reading once you hit '\n'. This is astoundingly inefficient, but for now it is the only way.
 
+## Non-blocking sockets
+Blocking sockets will make you wait, but might not do everything you ask of them anyhow. Non-blocking sockets only promise to not make you wait. In a sense, this makes them easier to use as they will disappoint you far quicker and break your bad code in obvious ways.
+
+To make a socket non-blocking in a portable way, do:
+```
+flags=fcntl(sock, F_GETFL, 0);  // DO CHECK ERRORS!
+flags |= O_NONBLOCK;
+flags=fcntl(sock, F_SETFL, flags);  // SERIOUSLY
+```
+### TCP (non-blocking)
+If you try to read from a non-blocking TCP socket, you instantly get data or an error code. No matter how much data you asked for, the call could return just 1 byte. If there is no data for you, it will not respond with 0. 0 always means EOF. If there is no data, you'll receive a negative return, and errno will be set to EAGAIN.
+
+The exact same thing happens on a write. Either at least 1 byte was submitted for transmission, and the amount submitted gets returned, or you get 0 denoting EOF, or you get an error condition and EAGAIN. 
+
+Of course you could still get all the other error conditions as well.
+
+So, if you try to read a full line of text (as described above), you can now safely ask for 1024 bytes, and if there is any data for you, you'll get it. The call will not block. You might get two lines of text though, or only a part of the line. But there is no more need to read one byte at a time. 
+
+### UDP (non-blocking)
+This works much like blocking UDP, alhough you might now also get EAGAIN when trying to receive data. At least there is no waiting
+
+## Waiting
+So, if we got EGAIN, now what? Almost all sample code will tell you to use `select()` to wait on a socket, but no one should ever be using `select()` ever again, since this call breaks violently if you use more than x file descriptors. You'll find out x at 3AM one day. Use `poll()` instead, or one of the more modern variants. 
+
+It is important to note that POSIX takes a broad view of what denotes 'readble' or 'writable' on a socket. For example, EOF is both. So `poll()` might return and tell you a socket is readable, but when you try, it gives you EOF. 
+
+In addition, like many other functions, `poll()` frequently changes its mind. If it says a socket is readable or writable, this may no longer be the case by the time you try. For this reason, do not EVER use `poll()` on a blocking socket. You might block.
+
+## A note on reliability and "flushing" or "syncing" data
+No matter how you do it, the socket API will never guarantee you that your data arrived. In fact it will not even guarantee you that it got _sent_. There are various system calls that make it *more likely* that your data hit the wire. But no promises. If you ever want to be sure your data made it to the other end, the only way to find that out is if the other end actually confirms this to you.
+
+Some useful and simple tricks to make this happen can be found [here](https://blog.netherlabs.nl/articles/2009/01/18/the-ultimate-so_linger-page-or-why-is-my-tcp-not-reliable)
+
+
 ## Some vital historical code
 You will need to run the following in all network code:
 ```
@@ -79,3 +115,6 @@ signal(SIGPIPE, SIG_IGN);
 Otherwise your code will silently die occasionally for reasons that arre hard to explain. Just say no. 
 
 Additionally, for any TCP socket you call `listen()` on, you must first set the socket option SO_REUSEADDR to 1. This too has valid historical reasons which are hard to explain, but just do it. 
+
+## If you want to know more
+
