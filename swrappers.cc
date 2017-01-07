@@ -65,6 +65,37 @@ int SSetsockopt(int sockfd, int level, int opname, int value)
   return ret;
 }
 
+void SWrite(int sockfd, boost::string_ref content, std::string::size_type *wrlen)
+{
+  int res = write(sockfd, &content[0], content.size());
+  if(res < 0)
+    RuntimeError(boost::format("Write to socket: %s") % strerror(errno));
+  if(res != (int)content.size()) {
+    if(wrlen) {
+      *wrlen = res;
+      return;
+    }
+    RuntimeError(boost::format("Partial write to socket: wrote %d bytes out of %d") % res % content.size());
+  }
+}
+
+std::string SRead(int sockfd, std::string::size_type limit)
+{
+  std::string ret;
+  char buffer[1024];
+  std::string::size_type leftToRead=limit;
+  for(;;) {
+    auto chunk = sizeof(buffer) < leftToRead ? sizeof(buffer) : leftToRead;
+    int res = read(sockfd, buffer, chunk);
+    if(res < 0)
+      RuntimeError(boost::format("Read from socket: %s") % strerror(errno));
+    if(!res)
+      break;
+    ret.append(buffer, res);
+  }
+  return ret;
+}
+
 void SetNonBlocking(int sock, bool to)
 {
   int flags=fcntl(sock,F_GETFL,0);

@@ -6,6 +6,17 @@
 using std::cout;
 using std::endl;
 
+void test0()
+{
+  int s = SSocket(AF_INET, SOCK_STREAM);
+  ComboAddress webserver("52.48.64.3", 80);
+  SConnect(s, webserver);
+  SWrite(s, "GET / HTTP/1.1\r\nHost: ds9a.nl\r\nConnection: Close\r\n\r\n"); // will throw on partial write
+  std::string response = SRead(s);
+  cout<< response << endl;
+  close(s);
+}
+
 void test1()
 {
   int s = SSocket(AF_INET, SOCK_STREAM, 0);
@@ -88,9 +99,11 @@ void test4()
 
 int main()
 {
+  test0();
+  /*
   test4();
   test3();
   test1();
   test2();
-  
+  */
 }

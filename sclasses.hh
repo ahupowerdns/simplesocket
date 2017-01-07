@@ -29,18 +29,29 @@ struct RAIISocket
   int d_fd;
 };
 
-// ignores timeout for now
+/** Simple buffered reader for use on a non-blocking socket.
+    Has only one method to access data, getChar() which either gets you a character or it doesn't.
+    If the internal buffer is empty, SimpleBuffer will attempt to get up to bufsize bytes more in one go.
+    Optionally, with setTimeout(seconds) a timeout can be set.
+
+    WARNING: Only use ReadBuffer on a non-blocking socket! Otherwise it will
+    block indefinitely to read 'bufsize' bytes, even if you only wanted one!
+*/
+
 class ReadBuffer
 {
 public:
-  explicit ReadBuffer(int fd, int bufsize=1024) : d_fd(fd), d_buffer(bufsize)
+  //! Instantiate on a non-blocking filedescriptor, with a given buffer size in bytes
+  explicit ReadBuffer(int fd, int bufsize=2048) : d_fd(fd), d_buffer(bufsize)
   {}
 
+  //! Set timeout in seconds
   void setTimeout(double timeout)
   {
     d_timeout = timeout;
   }
-  
+
+  //! Gets you a character in c, or false in case of EOF
   inline bool getChar(char* c)
   {
     if(d_pos == d_endpos && !getMoreData())
@@ -58,20 +69,31 @@ private:
   double d_timeout=-1;
 };
 
-// convenience class that requires a non-blocking socket as input and supports commonly used operations
+/** Convenience class that requires a non-blocking socket as input and supports commonly used operations.
+    SocketCommunicator will modify your socket to be non-blocking. This class
+    will not close or otherwise modify your socket. 
+    Note that since SocketCommunicator instantiates a buffered reader on your socket, you should not attempt concurrent reads on the socket as long as SocketCommunicator is active.
+*/
 class SocketCommunicator
 {
 public:
+  //! Instantiate on top of this file descriptor, which will be set to non-blocking
   explicit SocketCommunicator(int fd) : d_rb(fd), d_fd(fd)
   {
     SetNonBlocking(fd);
   }
+  //! Connect to an address, with the default timeout (which may be infinite)
   void connect(const ComboAddress& a)
   {
     SConnectWithTimeout(d_fd, a, d_timeout);
   }
+  //! Get a while line of text. Returns false on EOF. Will return a partial last line. With timeout.
   bool getLine(std::string& line);
+
+  //! Fully write out a message, even in the face of partial writes. With timeout.
   void writen(boost::string_ref message);
+
+  //! Set the timeout (in seconds)
   void setTimeout(double timeout) { d_timeout = timeout; }
 private:
   ReadBuffer d_rb;
