@@ -43,7 +43,7 @@ void test2()
     a.setPort(80);
     cout << "Connecting to: " << a.toStringWithPort() << endl;
     
-    RAIISocket rs(a.sin.sin_family, SOCK_STREAM);
+    Socket rs(a.sin.sin_family, SOCK_STREAM);
     SocketCommunicator sc(rs);
     sc.connect(a);
     sc.writen("GET / HTTP/1.1\r\nHost: ds9a.nl\r\nConnection: Close\r\n\r\n");
@@ -57,7 +57,24 @@ void test2()
 
 void test3()
 {
-    
+  std::vector<Socket> listeners;
+  for(int n=10000; n < 10003; ++n) {
+    Socket sock(AF_INET6, SOCK_STREAM);
+    SSetsockopt(sock, SOL_SOCKET, SO_REUSEADDR, true);
+    SBind(sock, ComboAddress("::1", n));
+    SListen(sock, 10);
+    listeners.push_back(std::move(sock));
+  }
+  
+  for(int t=0; t < 5; ++t) {
+    auto av = SPoll({listeners[0], listeners[1], listeners[2]}, {}, 1.0);
+    for(auto& a : av) {
+      ComboAddress remote;
+      remote.sin.sin_family = AF_INET6;
+      Socket rs=SAccept(a.first, remote);
+      SWriten(rs, "Hello!\r\n");
+    }
+  }
 }
 
 void test4()
@@ -70,7 +87,7 @@ void test4()
   for(auto& a : addresses) {
     try {
       a.setPort(80);
-      RAIISocket rs(a.sin.sin_family, SOCK_STREAM);
+      Socket rs(a.sin.sin_family, SOCK_STREAM);
 
       SocketCommunicator sc(rs);
       sc.setTimeout(1.5);
@@ -99,6 +116,7 @@ void test4()
 
 int main()
 {
+  test3();
   test0();
   /*
   test4();

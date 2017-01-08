@@ -4,12 +4,20 @@
 
 int SConnectWithTimeout(int sockfd, const ComboAddress& remote, double timeout);
 
-struct RAIISocket
+struct Socket
 {
-  RAIISocket(int fd) : d_fd(fd){}
-  RAIISocket(int domain, int type, int protocol=0)
+  Socket(int fd) : d_fd(fd){}
+  Socket(int domain, int type, int protocol=0)
   {
     d_fd = SSocket(domain, type, protocol);
+  }
+
+  Socket(const Socket&) = delete;
+  Socket& operator=(const Socket&) = delete;
+  Socket(Socket&& rhs)
+  {
+    d_fd = rhs.d_fd;
+    rhs.d_fd = -1;
   }
 
   operator int()
@@ -21,7 +29,7 @@ struct RAIISocket
   {
     d_fd=-1;
   }
-  ~RAIISocket()
+  ~Socket()
   {
     if(d_fd >= 0)
       close(d_fd);

@@ -1,7 +1,8 @@
 #pragma once
 #include <boost/utility/string_ref.hpp>
-
+#include <sys/poll.h>
 #include "comboaddress.hh"
+#include <map>
 
 /** \mainpage Simple Sockets Intro
     \section intro_sec Introduction
@@ -11,6 +12,8 @@ Various libraries have attempted to offer "C++ native" socket environments, but 
 
 This set of files offers the BSD/POSIX socket API relatively unadorned, with the original semantics, and fully interoperable
 with the usual system calls. 
+
+To find out more about Simple Sockets, please also consult its [GitHub](https://github.com/ahuPowerDNS/simplesocket) page.
 
     \section Basic Basic example code
 Note that the 'raw' socket code below is just as reliable as the original socket API. In other words, it is recommended to use
@@ -30,6 +33,22 @@ higher level functions.
     }
 \endcode
 
+    \section Medium Slightly higher level code
+This sample code uses some functions that are not just wrappers, and offer more useful semantics:
+\code{.cpp}
+    #include "swrappers.hh"
+
+    int main()
+    {
+      int s = SSocket(AF_INET, SOCK_STREAM);
+      SConnect(s, "52.48.64.3:80"_ipv4);     // user literal! with constexpr!
+      SWriten(s, "GET / HTTP/1.1\r\nHost: ds9a.nl\r\nConnection: Close\r\n\r\n"); // deals with partial writes
+      std::string response = SRead(s, 100000);  // reads at most 100k
+      cout<< response << endl;
+      close(s);
+    }
+\endcode
+
     \section higher Some sample code using the higher-level classes
 \code{.cpp}
   auto addresses=resolveName("ds9a.nl"); // this retrieves IPv4 and IPv6
@@ -38,7 +57,7 @@ higher level functions.
     a.setPort(80);
     cout << "Connecting to: " << a.toStringWithPort() << endl;
 
-    RAIISocket rs(a.sin.sin_family, SOCK_STREAM);
+    Socket rs(a.sin.sin_family, SOCK_STREAM);
     SocketCommunicator sc(rs);
     sc.connect(a);
     sc.writen("GET / HTTP/1.1\r\nHost: ds9a.nl\r\nConnection: Close\r\n\r\n");
@@ -75,10 +94,17 @@ int SSetsockopt(int sockfd, int level, int opname, int value);
 //! Attempt to write string to the socket. Partial write is an exception if 'wrlen' not set. Otherwise wrlen gets size of written data, and no exception
 void SWrite(int sockfd, boost::string_ref content, std::string::size_type* wrlen=0);
 
+//! Attempt to write whole string to the socket, dealing with partial writes. EOF is exception.
+void SWriten(int sockfd, boost::string_ref content);
+
+//! Read at most \p bytes bytes from fd \p sockfd. Will stop reading after EOF, which is not an exception.
 std::string SRead(int sockfd, std::string::size_type limit = std::numeric_limits<std::string::size_type>::max());
 
 //! Set a socket to (non) blocking mode. Error = exception.
 void SetNonBlocking(int sockfd, bool to=true);
+
+
+std::map<int,short> SPoll(const std::vector<int>&rdfds, const std::vector<int>&wrfds, double timeout);
 
 //! Use system facilities to resolve a name into addresses. If no address found, returns empty vector
 std::vector<ComboAddress> resolveName(boost::string_ref name, bool ipv4=true, bool ipv6=true);

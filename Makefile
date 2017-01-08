@@ -1,13 +1,16 @@
 CXXFLAGS:=-std=gnu++14 -Wall -MMD -MP
 
 
-all: test
+all: test 
 
 clean:
 	rm -f *~ *.o *.d test
 
 -include *.d
 
-test: test.o comboaddress.o swrappers.o sclasses.o
+SIMPLESOCKETS=comboaddress.o swrappers.o sclasses.o
+
+test: test.o $(SIMPLESOCKETS)
 	g++ -std=gnu++14 $^ -o $@
+
 

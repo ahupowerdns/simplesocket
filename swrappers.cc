@@ -1,5 +1,6 @@
 #include "swrappers.hh"
 #include <boost/format.hpp>
+#include <map>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -79,6 +80,21 @@ void SWrite(int sockfd, boost::string_ref content, std::string::size_type *wrlen
   }
 }
 
+void SWriten(int sockfd, boost::string_ref content)
+{
+  std::string::size_type pos=0;
+  for(;;) {
+    int res = write(sockfd, &content[pos], content.size()-pos);
+    if(res < 0)
+      RuntimeError(boost::format("Write to socket: %s") % strerror(errno));
+    if(!res)
+      RuntimeError(boost::format("EOF on writen"));
+    pos += res;
+    if(pos == content.size())
+      break;
+  }
+}
+
 std::string SRead(int sockfd, std::string::size_type limit)
 {
   std::string ret;
@@ -111,6 +127,32 @@ void SetNonBlocking(int sock, bool to)
       
   if(fcntl(sock, F_SETFL, flags) < 0)
     RuntimeError(boost::format("Setting socket flags: %s") % strerror(errno));
+}
+
+std::map<int, short> SPoll(const std::vector<int>&rdfds, const std::vector<int>&wrfds, double timeout)
+{
+  std::vector<pollfd> pfds;
+  std::map<int, short> inputs;
+  for(const auto& i : rdfds) {
+    inputs[i]|=POLLIN;
+  }
+  for(const auto& i : wrfds) {
+    inputs[i]|=POLLOUT;
+  }
+  for(const auto& p : inputs) {
+    pfds.push_back({p.first, p.second, 0});
+  }
+  int res = poll(&pfds[0], pfds.size(), timeout*1000);
+  if(res < 0)
+    RuntimeError(boost::format("Setting up poll: %s") % strerror(errno));
+  inputs.clear();
+  if(res) {
+    for(const auto& pfd : pfds) {
+      if(pfd.revents & pfd.events)
+        inputs[pfd.fd]=pfd.revents;
+    }
+  }
+  return inputs;
 }
 
 std::vector<ComboAddress> resolveName(boost::string_ref name, bool ipv4, bool ipv6)
