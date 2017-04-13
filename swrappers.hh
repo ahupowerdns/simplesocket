@@ -3,6 +3,7 @@
 #include <sys/poll.h>
 #include "comboaddress.hh"
 #include <map>
+#include <vector>
 
 /** \mainpage Simple Sockets Intro
     \section intro_sec Introduction
