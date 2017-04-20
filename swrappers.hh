@@ -97,6 +97,16 @@ void SWrite(int sockfd, boost::string_ref content, std::string::size_type* wrlen
 //! Attempt to write whole string to the socket, dealing with partial writes. EOF is exception.
 void SWriten(int sockfd, boost::string_ref content);
 
+//! Send a datagram to a destination
+void SSendto(int sockfd, boost::string_ref content, const ComboAddress& dest, int flags=0);
+
+//! Receive a datagram from a destination
+std::string SRecvfrom(int sockfd, std::string::size_type limit, ComboAddress& dest, int flags=0);
+
+
+//! Retrieve sockname
+void SGetsockname(int sockfd, ComboAddress& dest);
+
 //! Read at most \p bytes bytes from fd \p sockfd. Will stop reading after EOF, which is not an exception.
 std::string SRead(int sockfd, std::string::size_type limit = std::numeric_limits<std::string::size_type>::max());
 

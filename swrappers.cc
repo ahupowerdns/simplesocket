@@ -112,6 +112,36 @@ std::string SRead(int sockfd, std::string::size_type limit)
   return ret;
 }
 
+void SSendto(int sockfd, boost::string_ref content, const ComboAddress& dest, int flags)
+{
+  int ret = sendto(sockfd, &content[0], content.size(), flags, (struct sockaddr*)&dest, dest.getSocklen());
+  if(ret < 0)
+    RuntimeError(boost::format("Sending datagram with SSendto: %s") % strerror(errno));
+}
+
+std::string SRecvfrom(int sockfd, std::string::size_type limit, ComboAddress& dest, int flags)
+{
+  std::string ret;
+  ret.resize(limit);
+  
+  socklen_t slen = dest.getSocklen();
+  int res = recvfrom(sockfd, &ret[0], ret.size(), flags, (struct sockaddr*)&dest, &slen);
+  
+  if(res < 0)
+    RuntimeError(boost::format("Receiving datagram with SRecvfrom: %s") % strerror(errno));
+    
+  ret.resize(res);
+  return ret;
+}
+
+void SGetsockname(int sock, ComboAddress& orig)
+{
+  socklen_t slen=orig.getSocklen();
+  if(getsockname(sock, (struct sockaddr*)&orig, &slen) < 0)
+    RuntimeError(boost::format("Error retrieving sockname of socket: %s") % strerror(errno));
+}
+
+
 void SetNonBlocking(int sock, bool to)
 {
   int flags=fcntl(sock,F_GETFL,0);
