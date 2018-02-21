@@ -321,10 +321,10 @@ public:
 	d_bits=0;
   }
   
-  Netmask(const ComboAddress& network, uint8_t bits=0xff)
+  explicit Netmask(const ComboAddress& network, uint8_t bits=0xff)
   {
     d_network = network;
-    
+    d_network.sin4.sin_port=0;
     if(bits > 128)
       bits = (network.sin4.sin_family == AF_INET) ? 32 : 128;
     
