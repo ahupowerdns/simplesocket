@@ -334,11 +334,25 @@ public:
     else
       d_mask=0xFFFFFFFF; // not actually used for IPv6
   }
+
+  static std::pair<std::string, std::string> splitField(const std::string& inp, char sepa)
+  {
+    std::pair<std::string, std::string> ret;
+    auto cpos=inp.find(sepa);
+    if(cpos==std::string::npos)
+      ret.first=inp;
+    else {
+      ret.first=inp.substr(0, cpos);
+      ret.second=inp.substr(cpos+1);
+    }
+    return ret;
+  }
+
   
   //! Constructor supplies the mask, which cannot be changed 
   Netmask(const std::string &mask) 
   {
-    std::pair<std::string,std::string> split; // =splitField(mask,'/');
+    auto split=splitField(mask,'/');
     d_network=ComboAddress(split.first);
     
     if(!split.second.empty()) {
