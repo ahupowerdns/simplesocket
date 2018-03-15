@@ -67,6 +67,11 @@ public:
     *c=d_buffer[d_pos++];
     return true;
   }
+
+  inline bool haveData() const
+  {
+    return d_pos != d_endpos;
+  }
   
 private:
   bool getMoreData(); //!< returns false on EOF
@@ -108,3 +113,11 @@ private:
   int d_fd;
   double d_timeout{-1};
 };
+
+// returns -1 in case if error, 0 if no data is available, 1 if there is
+// negative time = infinity, timeout is in seconds
+// should, but does not, decrement timeout
+int waitForRWData(int fd, bool waitForRead, double* timeout=0, bool* error=0, bool* disconnected=0);
+
+// should, but does not, decrement timeout. timeout in seconds
+int waitForData(int fd, double* timeout=0);

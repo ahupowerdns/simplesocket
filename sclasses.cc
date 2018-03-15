@@ -3,10 +3,8 @@
 #include <sys/poll.h>
 #include <boost/format.hpp>
 
-// returns -1 in case if error, 0 if no data is available, 1 if there is
-// negative time = infinity
-// should, but does not, decrement timeout
-int waitForRWData(int fd, bool waitForRead, double* timeout=0, bool* error=0, bool* disconnected=0)
+
+int waitForRWData(int fd, bool waitForRead, double* timeout, bool* error, bool* disconnected)
 {
   int ret;
 
@@ -35,8 +33,7 @@ int waitForRWData(int fd, bool waitForRead, double* timeout=0, bool* error=0, bo
   return ret;
 }
 
-// should, but does not, decrement timeout
-int waitForData(int fd, double* timeout=0)
+int waitForData(int fd, double* timeout)
 {
   return waitForRWData(fd, true, timeout);
 }
