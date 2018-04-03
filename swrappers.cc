@@ -100,7 +100,7 @@ std::string SRead(int sockfd, std::string::size_type limit)
   std::string ret;
   char buffer[1024];
   std::string::size_type leftToRead=limit;
-  for(;;) {
+  for(; leftToRead;) {
     auto chunk = sizeof(buffer) < leftToRead ? sizeof(buffer) : leftToRead;
     int res = read(sockfd, buffer, chunk);
     if(res < 0)
@@ -108,6 +108,7 @@ std::string SRead(int sockfd, std::string::size_type limit)
     if(!res)
       break;
     ret.append(buffer, res);
+    leftToRead -= res;
   }
   return ret;
 }
