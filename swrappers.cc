@@ -71,9 +71,11 @@ void SWrite(int sockfd, boost::string_ref content, std::string::size_type *wrlen
   int res = write(sockfd, &content[0], content.size());
   if(res < 0)
     RuntimeError(boost::format("Write to socket: %s") % strerror(errno));
+  if(wrlen) 
+    *wrlen = res;
+
   if(res != (int)content.size()) {
     if(wrlen) {
-      *wrlen = res;
       return;
     }
     RuntimeError(boost::format("Partial write to socket: wrote %d bytes out of %d") % res % content.size());
@@ -119,6 +121,15 @@ void SSendto(int sockfd, boost::string_ref content, const ComboAddress& dest, in
   if(ret < 0)
     RuntimeError(boost::format("Sending datagram with SSendto: %s") % strerror(errno));
 }
+
+int SSend(int sockfd, boost::string_ref content, int flags)
+{
+  int ret = send(sockfd, &content[0], content.size(), flags);
+  if(ret < 0)
+    RuntimeError(boost::format("Sending with SSend: %s") % strerror(errno));
+  return ret;
+}
+
 
 std::string SRecvfrom(int sockfd, std::string::size_type limit, ComboAddress& dest, int flags)
 {

@@ -101,6 +101,9 @@ void SWriten(int sockfd, boost::string_ref content);
 //! Send a datagram to a destination
 void SSendto(int sockfd, boost::string_ref content, const ComboAddress& dest, int flags=0);
 
+//! Send a datagram to a connected socket
+int SSend(int sockfd, boost::string_ref content, int flags=0);
+
 //! Receive a datagram from a destination
 std::string SRecvfrom(int sockfd, std::string::size_type limit, ComboAddress& dest, int flags=0);
 
