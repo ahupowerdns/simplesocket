@@ -2,7 +2,8 @@
 #include "comboaddress.hh"
 #include "swrappers.hh"
 #include "sclasses.hh"
-#include <boost/algorithm/string.hpp>
+#include <fmt/format.h>
+#include <fmt/printf.h>
 using std::cout;
 using std::endl;
 
@@ -96,7 +97,10 @@ void test4()
       std::string line;
       bool inheader=true;
       while(sc.getLine(line)) {
-        boost::trim(line);
+        auto pos = line.find_last_of(" \r\n");
+        if(pos != std::string::npos)
+          line.resize(pos);
+          
         if(inheader && line.empty()) {
           inheader=false;
           continue;

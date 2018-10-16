@@ -1,6 +1,6 @@
 #pragma once
 #include "swrappers.hh"
-#include <boost/utility/string_ref.hpp>
+#include <unistd.h>
 
 int SConnectWithTimeout(int sockfd, const ComboAddress& remote, double timeout);
 
@@ -104,7 +104,7 @@ public:
   bool getLine(std::string& line);
 
   //! Fully write out a message, even in the face of partial writes. With timeout.
-  void writen(boost::string_ref message);
+  void writen(const std::string& message);
 
   //! Set the timeout (in seconds)
   void setTimeout(double timeout) { d_timeout = timeout; }

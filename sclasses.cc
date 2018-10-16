@@ -1,8 +1,8 @@
 #include "sclasses.hh"
 #include <assert.h>
 #include <sys/poll.h>
-#include <boost/format.hpp>
-
+#include <fmt/format.h>
+#include <fmt/printf.h>
 
 int waitForRWData(int fd, bool waitForRead, double* timeout, bool* error, bool* disconnected)
 {
@@ -53,26 +53,26 @@ int SConnectWithTimeout(int sockfd, const ComboAddress& remote, double timeout=-
           savederrno = 0;
           socklen_t errlen = sizeof(savederrno);
           if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, (void *)&savederrno, &errlen) == 0) {
-            throw std::runtime_error((boost::format("connecting to %s failed: %s") % remote.toStringWithPort() % std::string(strerror(savederrno))).str());
+            throw std::runtime_error(fmt::sprintf("connecting to %s failed: %s", remote.toStringWithPort(), strerror(savederrno)));
           }
           else {
-            throw std::runtime_error((boost::format("connecting to %s failed") % remote.toStringWithPort()).str());
+            throw std::runtime_error(fmt::sprintf("connecting to %s failed", remote.toStringWithPort()));
           }
         }
         if (disconnected) {
-          throw std::runtime_error((boost::format("%s closed the connection") % remote.toStringWithPort()).str());
+          throw std::runtime_error(fmt::sprintf("%s closed the connection", remote.toStringWithPort()));;
         }
         return 0;
       }
       else if (res == 0) {
-        throw std::runtime_error((boost::format("timeout while connecting to %s") % remote.toStringWithPort()).str());
+        throw std::runtime_error(fmt::sprintf("timeout while connecting to %s", remote.toStringWithPort()));
       } else if (res < 0) {
         savederrno = errno;
-        throw std::runtime_error((boost::format("waiting to connect to %s: %s") % remote.toStringWithPort() % std::string(strerror(savederrno))).str());
+        throw std::runtime_error(fmt::sprintf("waiting to connect to %s: %s", remote.toStringWithPort(), strerror(savederrno)));
       }
     }
     else {
-      throw std::runtime_error((boost::format("connecting to %s: %s") % remote.toStringWithPort() % std::string(strerror(savederrno))).str());
+      throw std::runtime_error(fmt::sprintf("connecting to %s: %s", remote.toStringWithPort(), strerror(savederrno)));
     }
   }
 
@@ -113,7 +113,7 @@ bool SocketCommunicator::getLine(std::string& line)
   return !line.empty();
 }
 
-void SocketCommunicator::writen(boost::string_ref content)
+void SocketCommunicator::writen(const std::string& content)
 {
   unsigned int pos=0;
   

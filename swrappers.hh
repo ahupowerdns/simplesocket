@@ -1,9 +1,9 @@
 #pragma once
-#include <boost/utility/string_ref.hpp>
 #include <sys/poll.h>
 #include "comboaddress.hh"
 #include <map>
 #include <vector>
+#include <limits>
 
 /** \mainpage Simple Sockets Intro
     \section intro_sec Introduction
@@ -93,16 +93,16 @@ int SListen(int sockfd, int limit);
 int SSetsockopt(int sockfd, int level, int opname, int value);
 
 //! Attempt to write string to the socket. Partial write is an exception if 'wrlen' not set. Otherwise wrlen gets size of written data, and no exception
-void SWrite(int sockfd, boost::string_ref content, std::string::size_type* wrlen=0);
+void SWrite(int sockfd, const std::string& content, std::string::size_type* wrlen=0);
 
 //! Attempt to write whole string to the socket, dealing with partial writes. EOF is exception.
-void SWriten(int sockfd, boost::string_ref content);
+void SWriten(int sockfd, const std::string& content);
 
 //! Send a datagram to a destination
-void SSendto(int sockfd, boost::string_ref content, const ComboAddress& dest, int flags=0);
+void SSendto(int sockfd, const std::string& content, const ComboAddress& dest, int flags=0);
 
 //! Send a datagram to a connected socket
-int SSend(int sockfd, boost::string_ref content, int flags=0);
+int SSend(int sockfd, const std::string& content, int flags=0);
 
 //! Receive a datagram from a destination
 std::string SRecvfrom(int sockfd, std::string::size_type limit, ComboAddress& dest, int flags=0);
@@ -121,5 +121,5 @@ void SetNonBlocking(int sockfd, bool to=true);
 std::map<int,short> SPoll(const std::vector<int>&rdfds, const std::vector<int>&wrfds, double timeout);
 
 //! Use system facilities to resolve a name into addresses. If no address found, returns empty vector
-std::vector<ComboAddress> resolveName(boost::string_ref name, bool ipv4=true, bool ipv6=true);
+std::vector<ComboAddress> resolveName(const std::string& name, bool ipv4=true, bool ipv6=true);
 
