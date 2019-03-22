@@ -191,7 +191,7 @@ std::map<int, short> SPoll(const std::vector<int>&rdfds, const std::vector<int>&
   inputs.clear();
   if(res) {
     for(const auto& pfd : pfds) {
-      if(pfd.revents & pfd.events)
+      if((pfd.revents & pfd.events) || pfd.revents==POLLERR )
         inputs[pfd.fd]=pfd.revents;
     }
   }
