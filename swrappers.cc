@@ -202,6 +202,26 @@ std::vector<ComboAddress> resolveName(const std::string& name, bool ipv4, bool i
 {
   std::vector<ComboAddress> ret;
 
+  try {
+    ComboAddress attempt(name);
+    ret.push_back(attempt);
+    return ret;
+  }
+  catch(...){}
+
+  // if we are here, it is a name, format: name:port
+
+
+  int port=0;
+  std::string rname;
+  auto pos = name.find(':');
+  if(pos != std::string::npos) {
+    rname = name.substr(0, pos);
+    port = atoi(&name[pos+1]);
+  }
+  else
+    rname = name;
+  
   for(int n = 0; n < 2; ++n) {
     struct addrinfo* res;
     struct addrinfo hints;
@@ -215,12 +235,12 @@ std::vector<ComboAddress> resolveName(const std::string& name, bool ipv4, bool i
     
     ComboAddress remote;
     remote.sin4.sin_family = AF_INET6;
-    if(!getaddrinfo(&name[0], 0, &hints, &res)) { // this is how the getaddrinfo return code works
+    if(!getaddrinfo(&rname[0], 0, &hints, &res)) { // this is how the getaddrinfo return code works
       struct addrinfo* address = res;
       do {
         if (address->ai_addrlen <= sizeof(remote)) {
           memcpy(&remote, address->ai_addr, address->ai_addrlen);
-          remote.sin4.sin_port=0;
+          remote.sin4.sin_port = htons(port);
           ret.push_back(remote);
         }
       } while((address = address->ai_next));
