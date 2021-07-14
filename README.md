@@ -53,7 +53,7 @@ a container.
 The `SocketCommunicator` class provides an interface that provides for
 sending of whole messages (even in the face of partial writes) and
 retrieving whole lines (even if they appear in multiple reads).
-`SocketCommunicator` als supports timeouts.
+`SocketCommunicator` also supports timeouts.
 
 ## Using the code
 Simply compile & link the .cc files into your project.
