@@ -1,9 +1,12 @@
 #include "swrappers.hh"
+#include "sclasses.hh"
 #include <map>
 #include <unistd.h>
 #include <fcntl.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
+#include <chrono>
+
 
 /** these functions provide a very lightweight wrapper to the Berkeley sockets API. Errors -> exceptions! */
 
@@ -239,7 +242,7 @@ std::vector<ComboAddress> resolveName(const std::string& name, bool ipv4, bool i
       struct addrinfo* address = res;
       do {
         if (address->ai_addrlen <= sizeof(remote)) {
-          memcpy(&remote, address->ai_addr, address->ai_addrlen);
+          memcpy(&remote, (void*)address->ai_addr, address->ai_addrlen);
           remote.sin4.sin_port = htons(port);
           ret.push_back(remote);
         }
@@ -249,4 +252,49 @@ std::vector<ComboAddress> resolveName(const std::string& name, bool ipv4, bool i
   }
   return ret;
 }
+/*
+static auto xSecondsFromNow(double seconds)
+{
+  auto now = std::chrono::steady_clock::now();
+  now += std::chrono::milliseconds((unsigned int)(seconds*1000));
+  return now;
+}
 
+static int msecLeft(const std::chrono::steady_clock::time_point& deadline)
+{
+  auto now = std::chrono::steady_clock::now();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
+}
+
+*/
+std::string SReadWithDeadline(int sock, int num, const std::chrono::steady_clock::time_point& deadline)
+{
+  std::string ret;
+  char buffer[1024];
+  std::string::size_type leftToRead=num;
+  
+  for(; leftToRead;) {
+    auto now = std::chrono::steady_clock::now();
+    
+    auto msecs = std::chrono::duration_cast<std::chrono::milliseconds>(deadline-now);
+    if(msecs.count() <= 0) 
+      throw std::runtime_error("Timeout");
+
+    double toseconds = msecs.count()/1000.0;
+    int res = waitForRWData(sock, true, &toseconds); // 0 = timeout, 1 = data, -1 error
+    if(res == 0)
+      throw std::runtime_error("Timeout");
+    if(res < 0)
+      throw std::runtime_error("Reading with deadline: "+ std::string(strerror(errno)));
+
+    auto chunk = sizeof(buffer) < leftToRead ? sizeof(buffer) : leftToRead;
+    res = read(sock, buffer, chunk);
+    if(res < 0)
+      throw std::runtime_error(fmt::sprintf("Read from socket: %s", strerror(errno)));
+    if(!res)
+      throw std::runtime_error(fmt::sprintf("Unexpected EOF"));
+    ret.append(buffer, res);
+    leftToRead -= res;
+  }
+  return ret;
+}
