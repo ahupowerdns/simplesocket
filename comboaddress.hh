@@ -139,7 +139,7 @@ union ComboAddress {
   */
 
   //! Convenience comparator that compares regardless of port. 
-  struct addressOnlyLessThan: public std::binary_function<ComboAddress, ComboAddress, bool>
+  struct addressOnlyLessThan
   {
     bool operator()(const ComboAddress& a, const ComboAddress& b) const
     {
@@ -154,7 +154,7 @@ union ComboAddress {
     }
   };
   //! Convenience comparator that compares regardless of port. 
-  struct addressOnlyEqual: public std::binary_function<ComboAddress, ComboAddress, bool>
+  struct addressOnlyEqual
   {
     bool operator()(const ComboAddress& a, const ComboAddress& b) const
     {
