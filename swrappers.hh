@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <limits>
+#include <chrono>
 
 /** \mainpage Simple Sockets Intro
     \section intro_sec Introduction
@@ -123,3 +124,4 @@ std::map<int,short> SPoll(const std::vector<int>&rdfds, const std::vector<int>&w
 //! Use system facilities to resolve a name into addresses. If no address found, returns empty vector
 std::vector<ComboAddress> resolveName(const std::string& name, bool ipv4=true, bool ipv6=true);
 
+std::string SReadWithDeadline(int sock, int num, const std::chrono::steady_clock::time_point& deadline);
